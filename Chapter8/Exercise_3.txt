@@ -1,0 +1,64 @@
+// code link: https://code.earthengine.google.com/7210c5038a8fe8f6bd2a7f9fc29ed412
+
+// Define a polygon of interest. Here, the urban extent of Guangdong-Hong
+// Kong-Macao Greater Bay Area is being explored. So set 4 vertex coordinates of // covering polygon with ee.Geometry.Polygon() function. 
+var polygon = ee.Geometry.Polygon(
+[[[112.470654296875, 23.693341453077945],
+          [112.470654296875, 21.808994306065635],
+          [114.887646484375, 21.808994306065635],
+          [114.887646484375, 23.693341453077945]]]);
+
+// Import nighttime light imagery and select the band named “stable_lights”
+var nightLightCol = ee.ImageCollection("NOAA/DMSP-OLS/NIGHTTIME_LIGHTS").select('stable_lights');
+// The nighttime light images are yearly composite ranging from 1992 to 2013. So // we take the image of 2013 as an example to investigate. The function of first() 
+// is used to get the first image of the filtered image collection. 
+var light2013 = nightLightCol.filterDate('2013-01-01','2014-01-01').first();
+
+// Clip the image to polygon
+var urbanLights = light2013.clip(polygon);
+
+// Pixel values greater than or equal to 50 are considered as urban area. Using 
+// selfMask() to mask out the zero after value filtering.
+var urbanExtent = urbanLights.gte(50).selfMask();
+
+// Display the result.
+Map.centerObject(polygon, 9);
+Map.addLayer(urbanExtent,{palette:['#FFDAB9'], opacity:0.5},'urban area');
+
+
+
+var plotLyr = function(yr){
+      Map.layers().reset();
+      var date = ee.Date.fromYMD(yr, 1, 1);
+      var dateRange = ee.DateRange(date, date.advance(1,"year"));
+      var img = nightLightCol.filterDate(dateRange).first();
+      Map.addLayer({
+        eeObject: ee.Image (img).clip(polygon).gte(50).selfMask(),
+        visParams:{
+          palette:['#FFDAB9'],
+          opacity:0.5
+        },
+        name: String(yr),
+      });
+};
+
+var label = ui.Label('Yearly urban extent');
+var slider = ui.Slider({
+  min:1992,
+  max:2013,
+  step:1,
+  onChange: plotLyr,
+  style:{stretch:'horizontal'}
+});
+
+var panel = ui.Panel({
+  widgets:[label, slider],
+  layout: ui.Panel.Layout.flow('vertical'),
+  style:{
+    position: 'bottom-center',
+    padding:'1px'
+  }
+});
+
+Map.add(panel);
+slider.setValue(2013);

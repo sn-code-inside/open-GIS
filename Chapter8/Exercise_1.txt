@@ -1,0 +1,48 @@
+//Code link: https://code.earthengine.google.com/8066c7531083f4b1112af1ae75ad029a
+
+// Define a polygon of interest. Use the UI Drawing Tools to import a polygon 
+// geometry and name it “polygon” or set 4 vertex coordinates with 
+// ee.Geometry.Polygon() function as shown below.
+var polygon = ee.Geometry.Polygon(
+        [[[113.9752331440766, 22.54598149801809],
+          [113.9752331440766, 22.458121497005013],
+          [114.07033354690863, 22.458121497005013],
+          [114.07033354690863, 22.54598149801809]]], null, false);
+
+// Import the Sentinel-2 L2A image collection
+var s2Col = ee.ImageCollection("COPERNICUS/S2_SR")
+
+// Get the images covering the polygon we defined before with cloudy pixel 
+// percentage less than 10 % in 2020
+var images = s2Col.filterBounds(polygon)
+                .filterDate('2020-01-01','2020-12-31')
+                .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE',10));
+
+// Generate a median composite across the filtered images and clip it to the 
+// polygon
+var median = images.median().clip(polygon);
+
+// Display the median image.
+Map.centerObject(polygon, 13);
+var params = {min: 0, max: 3000, bands: ['B4', 'B3', 'B2']};
+Map.addLayer(median, params, 'median image');
+// Compute the Normalized Difference Vegetation Index (NDVI). In Sentinel-2 L2A // images, near infrared band is “B8” and red band is “B4”. Then, the result is
+// renamed “NDVI”.
+var NDVI = median.normalizedDifference(['B8','B4']).rename('NDVI');
+
+// Display the result.
+var ndviParams = {min: -1, max: 1, palette: ['red', 'white', 'green']};
+Map.addLayer(NDVI, ndviParams, 'NDVI image');
+// The function of Export.image.toDrive() is used to export an image to your Drive // account. In our case, to export the resultant NDVI image, define the filename 
+// prefix, target folder in Drive, the scale of pixel and the maximal number of 
+// pixels you would like to export, then call Export.image.toDrive().
+Export.image.toDrive({
+  image: NDVI,
+  description: 'NDVI_Sentinel-2',
+  fileNamePrefix: 'NDVI_S2',
+  folder:'GEE_NDVI',
+  scale:10,
+  maxPixels:1e13,
+  region: polygon});
+
+
